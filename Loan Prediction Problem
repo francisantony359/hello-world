@@ -1,0 +1,61 @@
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import scipy as sc
+import matplotlib as plt
+from sklearn.externals import joblib
+df = pd.read_csv('train_loan.csv', engine = "python")
+df_test= pd.read_csv('test_loan.csv', engine = "python")
+df.head(5)
+df.describe()
+df['Property_Area'].value_counts()
+df['ApplicantIncome'].hist(bins=50)
+df.boxplot(column='ApplicantIncome')
+from sklearn.linear_model import LogisticRegression
+from sklearn.cross_validation import KFold   #For K-fold cross validation
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier, export_graphviz
+from sklearn import metrics
+def classification_model(model, data, predictors, outcome):
+  #Fit the model:
+  model.fit(data[predictors],data[outcome])
+  
+  #Make predictions on training set:
+  predictions = model.predict(data[predictors])
+  
+  #Print accuracy
+  accuracy = metrics.accuracy_score(predictions,data[outcome])
+  print("Accuracy :{0:.3%}".format(accuracy))
+
+  #Perform k-fold cross-validation with 5 folds
+  kf = KFold(data.shape[0], n_folds=5)
+  error = []
+  for train, test in kf:
+    # Filter training data
+    train_predictors = (data[predictors].iloc[train,:])
+    
+    # The target we're using to train the algorithm.
+    train_target = data[outcome].iloc[train]
+    
+    # Training the algorithm using the predictors and target.
+    model.fit(train_predictors, train_target)
+    
+    #Record error from each cross-validation run
+    error.append(model.score(data[predictors].iloc[test,:], data[outcome].iloc[test]))
+ 
+  print ("Cross-Validation Score :{0:.3%}".format(np.mean(error)))
+
+  #Fit the model again so that it can be refered outside the function:
+  model.fit(data[predictors],data[outcome]) 
+  outcome_var = 'Loan_Status'
+model = LogisticRegression()
+predictor_var = ['Gender', 'Married','Dependents','Education','Self_Employed','ApplicantIncome','CoapplicantIncome','LoanAmount',
+'Loan_Amount_Term','Credit_History','Property_Area','LoanAmount_log','TotalIncome','TotalIncome_log','Loan/Income']
+classification_model(model, df,predictor_var,outcome_var)
+
+featimp = pd.Series(model.feature_importances_, index=predictor_var).sort_values(ascending=False)
+print (featimp)
+
+model = RandomForestClassifier(n_estimators=25, min_samples_split=25, max_depth=7, max_features=1)
+predictor_var = ['TotalIncome_log','LoanAmount_log','Credit_History','Dependents','Property_Area']
+classification_model(model, df,predictor_var,outcome_var)
